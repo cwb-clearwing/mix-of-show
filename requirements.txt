@@ -1,0 +1,8 @@
+accelerate
+diffusers==0.19.3
+transformers
+omegaconf
+opencv-python
+six
+einops
+IPython
