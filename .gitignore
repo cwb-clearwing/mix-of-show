@@ -1,7 +1,6 @@
-datasets/old/*
-datasets/data/*
+datasets/*
 visualization/*
-experiments/old/*
+experiments/*
 results/*
 tb_logger/*
 wandb/*
