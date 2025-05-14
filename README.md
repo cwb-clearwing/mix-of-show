@@ -1,19 +1,4 @@
-# Mix-of-Show Experiments for Riemannian LoRA
-
-
-
-**Riemannian Preconditioned LoRA for Fine-Tuning Foundation Models** <br>
-*Fangzhao Zhang, Mert Pilanci* <br>
-Paper: [https://arxiv.org/abs/2402.02347](https://arxiv.org/abs/2402.02347) <br>
-
-This repository builds on original Mix-of-Show project [Mix-of-Show (Gu et al., 2023)](https://arxiv.org/abs/2305.18292).
-
-<p align="center">
-<img src="figures/result.png" width="800" >
-</p>
-
-
-We also test with Hermoine character and with SGD, scaled GD optimizers. 
+# Mix-of-Show Experiments for Riemannian AdaGrad
 
 ## Repository Overview
 
@@ -38,35 +23,40 @@ git-lfs clone https://huggingface.co/windwhinny/chilloutmix.git
 2. Create model directory
 ```bash
 cd ../..    
-mkdir experiments/8101_EDLoRA_potter_Cmix_B4_Repeat500
-mkdir experiments/8101_EDLoRA_potter_Cmix_B4_Repeat500/models
+mkdir experiments/8101_potter_rada_rank_4
+mkdir experiments/8101_potter_rada_rank_4/models
  ```
-3. Train (specify learning rates in <code>-opt</code> files)
+3. Prepare for datasets
+Prepare dataset by yourself or find dataset from other Mix-of-show repos on open source platform:
+
+https://github.com/pilancilab/Riemannian_Preconditioned_LoRA/tree/main/Mix-of-Show/datasets
+
+or
+
+https://github.com/TencentARC/Mix-of-Show/tree/main/datasets
+
+
+
+4. Train (specify learning rates in <code>-opt</code> files)
 ```bash
-accelerate launch train_edlora.py -opt options/train/EDLoRA/real/8101_EDLoRA_potter_Cmix_B4_Repeat500.yml --optimizer scaled_adamw --optimizer_reg 0
+accelerate launch train_edlora.py -opt options/train/EDLoRA/real/8101_potter_rada_rank_4.yml --optimizer radagrad
 ```
 
-Here <code>sgd, scaled_gd, adamw, scaled_adamw</code> are all valid choices for <code>--optimizer</code>. Scaled AdamW is set as dafualt. Trained models will be saved to <code>experiments/8101_EDLoRA_potter_Cmix_B4_Repeat500/models</code>.
+Here <code>radagrad, radam, rgd </code> are all valid choices for <code>--optimizer</code>. Scaled AdamW is set as dafualt. Trained models will be saved to <code>experiments/8101_potter_rada_rank_4/models</code>.
 
-4. Create image directory
+5. Create image directory
 ```bash
 mkdir results
-mkdir results/8101_EDLoRA_potter_Cmix_B4_Repeat500
+mkdir results/8101_potter_rada_rank_4
  ```
 
-5. Test
+6. Test
 ```bash
-python test_edlora.py -opt options/test/EDLoRA/human/8101_EDLoRA_potter_Cmix_B4_Repeat500.yml
+python test_edlora.py -opt options/test/EDLoRA/human/8101_potter_rada_rank_4.yml
 ```
-Figures will be saved to <code>results/8101_EDLoRA_potter_Cmix_B4_Repeat500/visualization</code>.
+Figures will be saved to <code>results/8101_potter_rada_rank_4/visualization</code>.
 
 
 ## Parameter Reference
 
-| Learning Rate | scaled_adamw reg | LoRA fusion parameter
-| ------------- | ------------- | ------------- |
-| 5e-4 & 5e-4 | 10 | 0.7 |
-| 1e-5 & 1e-4 | 0 | 1 |
-| 5e-6 & 5e-5 | 0 | 1 |
-
-
+See our paper for reference.
