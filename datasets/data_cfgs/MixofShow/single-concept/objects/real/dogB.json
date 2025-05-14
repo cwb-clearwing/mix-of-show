@@ -1,8 +1,0 @@
-[
-    {
-        "instance_prompt": "<TOK>",
-        "instance_data_dir": "datasets/data/objects/real/dog/dogB/image",
-        "caption_dir": "datasets/data/objects/real/dog/dogB/caption",
-        "mask_dir": "datasets/data/objects/real/dog/dogB/mask"
-    }
-]

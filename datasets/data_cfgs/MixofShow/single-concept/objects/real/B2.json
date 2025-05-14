@@ -1,8 +1,0 @@
-[
-    {
-        "instance_prompt": "<TOK>",
-        "instance_data_dir": "datasets/data/objects/real/airplane/B2/image",
-        "mask_dir": "datasets/data/objects/real/airplane/B2/mask",
-        "caption_dir": "datasets/data/objects/real/airplane/B2/caption"
-    }
-]
