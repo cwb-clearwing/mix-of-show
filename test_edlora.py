@@ -22,7 +22,6 @@ check_min_version('0.18.2')
 
 from transformers import CLIPModel, CLIPProcessor
 
-# 1. 加载模型和处理器（如果之前未加载）
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
 processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
@@ -43,33 +42,32 @@ def visual_validation(accelerator, pipe, dataloader, current_iter, opt):
 
         for img, prompt, indice in zip(output, val_data['prompts'], val_data['indices']):
             with torch.no_grad():
-                # 处理文本
+
                 text_inputs = processor(
                     text=prompt.replace('<potter1> <potter2>','Harry Potter'),
                     padding=True,
                     return_tensors="pt"
                 ).to(device)
                 
-                # 处理图像
+
                 image_inputs = processor(
                     images=img,
                     return_tensors="pt"
                 ).to(device)
 
-                # 提取特征
                 text_features = model.get_text_features(**text_inputs)
                 image_features = model.get_image_features(**image_inputs)
 
-            # 4. 特征归一化（关键步骤！）
+
             text_features = text_features / text_features.norm(dim=-1, keepdim=True)
             image_features = image_features / image_features.norm(dim=-1, keepdim=True)
 
-            # 5. 计算CLIP Score
-            logit_scale = model.logit_scale.exp()  # 从模型获取缩放参数
+
+            logit_scale = model.logit_scale.exp() 
             clip_scores = logit_scale * (image_features @ text_features.T)
 
-            # 6. 转换为可读分数（假设1对1匹配）
-            final_scores = clip_scores.diag().cpu().detach().numpy()  # 获取对角线元素（图像与对应文本的分数）
+
+            final_scores = clip_scores.diag().cpu().detach().numpy()
 
             img_name = '{prompt}---{clip}-G_{guidance_scale}_S_{steps}---{indice}'.format(
                 prompt=prompt.replace(' ', '_'),

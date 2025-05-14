@@ -133,23 +133,17 @@ class RGD_Opt(Optimizer):
                         state["neg_l"] = torch.zeros(n,n, device=p.device)
                         state["neg_r"] = torch.zeros(m,m, device=p.device)
                         state["exp_avg"] = torch.zeros_like(temp.data)
-                        # reg 0 for EDLora reg 1 for rank 4
                         state["step-size"] = 1
                     if hasattr(p,'is_matrix') and p.is_matrix:
-                        # PRGD 算法需要修改梯度为预条件梯度nvidia
                         if opt_type=="PRGD":
                             state["pos_l"] = ((group["epsilon"]) * torch.eye(n=n, device=p.device) + torch.diag(torch.diag(temp.matmul(temp.t()), 0))) ** (+1/4)
                             state["neg_l"] = torch.diag(torch.diag(state["pos_l"], 0) ** (-1))
                             state["pos_r"] = ((group["epsilon"]) * torch.eye(n=m, device=p.device) + torch.diag(torch.diag(temp.t().matmul(temp), 0))) ** (+1/4)
                             state["neg_r"] = torch.diag(torch.diag(state["pos_r"], 0) ** (-1))
                             p.grad = (state["neg_l"].matmul(temp.matmul(state["neg_r"]))).view(original_weight_shape)
-                        # RAdaGrad 算法需要在此之上实现一阶moment累加功能
                         elif opt_type=="RAdaGrad":
-                            # 防止溢出而设置的decay系数beta
-                            # Rada 不对梯度进行累加
                             beta2 = group["betas"][1]
                             beta1 = group["betas"][0]
-                            # 跳过步数 默认不跳过
                             skip = 1
                             Lt = state["Lt"]
                             Rt = state["Rt"]
@@ -240,17 +234,15 @@ class RGD_Opt(Optimizer):
                         if not hasattr(p,'is_matrix') or not p.is_matrix:
                             continue
                         grad = p.grad.clone()
-                        # param 会存储分解权重
+
                         if p.s == None:
                             state["step"] = 0
-                            if hasattr(p,'is_matrix') and p.is_matrix: #and hasattr(p,'init') and not p.init:
+                            if hasattr(p,'is_matrix') and p.is_matrix:
                                 state["svd"] = torch.linalg.svd(p.data.view(Dim2_shape))
                                 u, s ,vh = state["svd"]
-                                # 存储分解的U,S,V到param的属性中
                                 p.s = s
                                 p.u = u
                                 p.vh = vh
-                                # 近似
                                 p.data = (u[:,0:p.r].matmul(torch.diag(s[0:p.r]).matmul(vh[0:p.r,:]))).view(original_shape)
 
                         if hasattr(p,'is_matrix') and p.is_matrix:
@@ -269,13 +261,12 @@ class RGD_Opt(Optimizer):
                             q2,k2 = torch.linalg.qr(y2)
                             M = torch.cat((torch.cat((k0,k2),0),torch.cat((k1.t(),torch.zeros(k0.size()[0],k0.size()[0],device=p.device)),0)),1)
                             Small = torch.clone(M)
-                            # 增加 SVD 成功的机率
                             u_m, s, vh_m = torch.linalg.svd(Small)
                             u = torch.cat((p.u[:,0:p.r], q2),1)@u_m
                             vh = vh_m@torch.cat((p.vh[0:p.r,:], q1.t()),0)
                             rmax = p.r
                             tmp = 0.0
-                            # LoRA训练中 取消边训练边压缩的功能
+
                             compression = False
                             if compression and rmax >= p.minimum_rank: 
                                 tol = group["theta"] * torch.linalg.norm(s)
@@ -285,10 +276,8 @@ class RGD_Opt(Optimizer):
                                     if tmp < tol:
                                         rmax = j
                                         break
-                                
                                 rmax = min([rmax, p.r])
                                 rmax = max([rmax, 2])
-
                                 p.s[:rmax] = s[:rmax]
                                 p.u[:,:rmax] = u[:,:rmax]
                                 p.vh[:rmax,:] = vh[:rmax, :]
