@@ -4,7 +4,8 @@ import torch
 import torch.nn as nn
 from diffusers.models.attention_processor import AttnProcessor
 from diffusers.utils.import_utils import is_xformers_available
-import torch.nn.functional as F
+from .conv_lr import Conv2d_lr as RConv2D
+from .conv_lr import LowRank_Linear as RLinear
 
 if is_xformers_available():
     import xformers
@@ -39,7 +40,7 @@ class EDLoRA_Control_AttnProcessor:
         temb=None,
     ):
         residual = hidden_states
- 
+
         if attn.spatial_norm is not None:
             hidden_states = attn.spatial_norm(hidden_states, temb)
 
@@ -227,21 +228,25 @@ class LoRALinearLayer(nn.Module):
 
         if original_module.__class__.__name__ == 'Conv2d':
             in_channels, out_channels = original_module.in_channels, original_module.out_channels
-            self.lora_down = torch.nn.Conv2d(in_channels, rank, (1, 1), bias=False)
-            self.lora_up = torch.nn.Conv2d(rank, out_channels, (1, 1), bias=False)
+            #self.lora_down = torch.nn.Conv2d(in_channels, rank, (1, 1), bias=False)
+            self.lora_down = torch.eye(in_channels)
+            self.lora_down.weight = torch.eye(in_channels)
+            self.lora_up = RConv2D(in_channels, out_channels, (1, 1), rank=rank)
         else:
             in_features, out_features = original_module.in_features, original_module.out_features
-            self.lora_down = nn.Linear(in_features, rank, bias=False)
-            self.lora_up = nn.Linear(rank, out_features, bias=False)
+            #self.lora_down = nn.Linear(in_features, rank, bias=False)
+            self.lora_down = torch.eye(in_features)
+            self.lora_down.weight = torch.eye(in_features)
+            self.lora_up = RLinear(in_features, out_features, rank=rank)
 
         self.register_buffer('alpha', torch.tensor(alpha))
 
-        torch.nn.init.kaiming_uniform_(self.lora_down.weight, a=math.sqrt(5))
-        torch.nn.init.zeros_(self.lora_up.weight)
+        #torch.nn.init.kaiming_uniform_(self.lora_down.weight, a=math.sqrt(5))
+        #torch.nn.init.zeros_(self.lora_up.weight)
 
         self.original_forward = original_module.forward
         original_module.forward = self.forward
 
     def forward(self, hidden_states):
-        hidden_states = self.original_forward(hidden_states) + self.alpha * self.lora_up(self.lora_down(hidden_states))
+        hidden_states = self.original_forward(hidden_states) + self.alpha * self.lora_up(hidden_states)
         return hidden_states

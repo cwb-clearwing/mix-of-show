@@ -9,8 +9,8 @@ from accelerate.logging import get_logger
 from diffusers import AutoencoderKL, DDPMScheduler, UNet2DConditionModel
 from diffusers.utils.import_utils import is_xformers_available
 from einops import rearrange
-from transformers import CLIPTextModel, CLIPTokenizer 
-  
+from transformers import CLIPTextModel, CLIPTokenizer
+
 from mixofshow.models.edlora import (LoRALinearLayer, revise_edlora_unet_attention_controller_forward,
                                      revise_edlora_unet_attention_forward)
 from mixofshow.pipelines.pipeline_edlora import bind_concept_prompt
@@ -43,8 +43,8 @@ class EDLoRATrainer(nn.Module):
         if gradient_checkpoint:
             self.unet.enable_gradient_checkpointing()
 
-        # if enable_xformers:
-        #     assert is_xformers_available(), 'need to install xformer first'
+        if enable_xformers:
+            assert is_xformers_available(), 'need to install xformer first'
 
         # 2. Define train scheduler
         self.scheduler = DDPMScheduler.from_pretrained(pretrained_path, subfolder='scheduler')
@@ -97,7 +97,7 @@ class EDLoRATrainer(nn.Module):
         if finetune_cfg['text_encoder']['enable_tuning'] and finetune_cfg['text_encoder'].get('lora_cfg'):
             text_encoder_cfg = finetune_cfg['text_encoder']
 
-            where = text_encoder_cfg['lora_cfg'].pop('where') 
+            where = text_encoder_cfg['lora_cfg'].pop('where')
             assert where in ['CLIPEncoderLayer', 'CLIPAttention']
 
             self.text_encoder_lora = nn.ModuleList()
@@ -329,7 +329,7 @@ class EDLoRATrainer(nn.Module):
                 token_embeds[concept_cfg['concept_token_ids']] = token_embeds[
                     concept_cfg['concept_token_ids']].copy_(delta_state_dict['new_concept_embedding'][concept_name])
 
-        # load text_encoder  
+        # load text_encoder
         if 'text_encoder' in delta_state_dict and len(delta_state_dict['text_encoder']) != 0:
             load_keys = delta_state_dict['text_encoder'].keys()
             if hasattr(self, 'text_encoder_lora') and len(load_keys) == 2 * len(self.text_encoder_lora):

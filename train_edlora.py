@@ -20,8 +20,8 @@ from mixofshow.pipelines.trainer_edlora import EDLoRATrainer
 from mixofshow.utils.convert_edlora_to_diffusers import convert_edlora
 from mixofshow.utils.util import MessageLogger, dict2str, reduce_loss_dict, set_path_logger
 from test_edlora import visual_validation
-from custom_optimizers import AdamW, AdamWr, SGD, SGDr, RGD_Opt
-
+from custom_optimizers import AdamW, SGD, RGD_Opt
+import torch_optimizer as optim
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version('0.18.2')
 
@@ -69,12 +69,18 @@ def train(root_path, args):
     elif args.optimizer=='rgd':
         print('Using Optimizer Riemannian GD')
         optimizer = RGD_Opt(EDLoRA_trainer.get_params_to_optimize(), **train_opt['optim_g'], opt_type="RGD")
-    elif args.optimizer=='rgd':
-        print('Using Optimizer Riemannian GD')
+    elif args.optimizer=='prgd':
+        print('Using Optimizer Preconditioned Riemannian GD')
         optimizer = RGD_Opt(EDLoRA_trainer.get_params_to_optimize(), **train_opt['optim_g'], opt_type="PRGD")    
-    elif args.optimizer=='radagrgd':
+    elif args.optimizer=='radagrad':
         print('Using Optimizer Riemannian AdaGraD')
         optimizer = RGD_Opt(EDLoRA_trainer.get_params_to_optimize(), **train_opt['optim_g'], opt_type="RAdaGrad")
+    elif args.optimizer=='radam':
+        print('Using Optimizer Riemannian Adam')
+        optimizer = RGD_Opt(EDLoRA_trainer.get_params_to_optimize(), **train_opt['optim_g'], opt_type="RAdam")
+    elif args.optimizer=='shampoo':
+        print('Using Optimizer Shampoo')
+        optimizer = optim.Shampoo(EDLoRA_trainer.get_params_to_optimize(), **train_opt['optim_g'])
     
 
     # Get the training dataset
@@ -93,7 +99,8 @@ def train(root_path, args):
     # Train!
     
     total_batch_size = opt['datasets']['train']['batch_size_per_gpu'] * accelerator.num_processes * opt['gradient_accumulation_steps']
-    total_iter = len(train_dataset) / total_batch_size
+    # Special for RAdaGrad
+    total_iter = len(train_dataset) / total_batch_size 
     opt['train']['total_iter'] = total_iter
 
     logger.info('***** Running training *****')
@@ -123,7 +130,9 @@ def train(root_path, args):
     stop_emb_update = False
 
     original_embedding = copy.deepcopy(accelerator.unwrap_model(EDLoRA_trainer).text_encoder.get_input_embeddings().weight)
-
+    
+    ema_loss = 0
+    
     while global_step < opt['train']['total_iter']:
         with accelerator.accumulate(EDLoRA_trainer):
 
@@ -174,6 +183,10 @@ def train(root_path, args):
                 log_vars = {'iter': global_step}
                 log_vars.update({'lrs': lr_scheduler.get_last_lr()})
                 log_vars.update(log_dict)
+                ema_decay = 0.9
+                ema_loss = ema_decay * ema_loss +(1-ema_decay)* loss.item()
+                log_vars.update({'Loss': loss.item()})
+                log_vars.update({'EMA Loss': ema_loss})
                 msg_logger(log_vars)
 
             if global_step % opt['logger']['save_checkpoint_freq'] == 0:
@@ -200,7 +213,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-opt', type=str, default='options/train/EDLoRA/EDLoRA_hina_Anyv4_B4_Iter1K.yml')
     parser.add_argument('--optimizer', default='scaled_adamw', type=str,
-                        choices=['adamw', 'scaled_adamw', 'sgd', 'scaled_gd', 'rgd', 'radagrad'])
+                        choices=['adamw', 'scaled_adamw', 'sgd', 'scaled_gd', 'rgd', 'prgd', 'radagrad','shampoo', 'radam'])
     parser.add_argument('--optimizer_reg', default=0.0, type=float)
     parser.add_argument('--local-rank', type=int, default=0)
     args = parser.parse_args()

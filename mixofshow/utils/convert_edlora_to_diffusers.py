@@ -1,7 +1,6 @@
 import copy
 import torch
 
-
 def load_new_concept(pipe, new_concept_embedding, enable_edlora=True):
     new_concept_cfg = {}
 
@@ -41,14 +40,14 @@ def merge_lora_into_weight(original_state_dict, lora_state_dict, model_type, alp
                 .replace('fc1.weight', 'fc1.lora_down.weight') \
                 .replace('fc2.weight', 'fc2.lora_down.weight')
         else:
-            lora_down_name = k.replace('to_q.weight', 'to_q.lora_down.weight') \
-                .replace('to_k.weight', 'to_k.lora_down.weight') \
-                .replace('to_v.weight', 'to_v.lora_down.weight') \
-                .replace('to_out.0.weight', 'to_out.0.lora_down.weight') \
-                .replace('ff.net.0.proj.weight', 'ff.net.0.proj.lora_down.weight') \
-                .replace('ff.net.2.weight', 'ff.net.2.lora_down.weight') \
-                .replace('proj_out.weight', 'proj_out.lora_down.weight') \
-                .replace('proj_in.weight', 'proj_in.lora_down.weight')
+            lora_down_name = k.replace('to_q.weight', 'to_q.lora_down.layer.weight') \
+                .replace('to_k.weight', 'to_k.lora_down.layer.weight') \
+                .replace('to_v.weight', 'to_v.lora_down.layer.weight') \
+                .replace('to_out.0.weight', 'to_out.0.lora_down.layer.weight') \
+                .replace('ff.net.0.proj.weight', 'ff.net.0.proj.lora_down.layer.weight') \
+                .replace('ff.net.2.weight', 'ff.net.2.lora_down.layer.weight') \
+                .replace('proj_out.weight', 'proj_out.lora_down.layer.weight') \
+                .replace('proj_in.weight', 'proj_in.lora_down.layer.weight')
 
         return lora_down_name
 
@@ -56,28 +55,43 @@ def merge_lora_into_weight(original_state_dict, lora_state_dict, model_type, alp
     new_state_dict = copy.deepcopy(original_state_dict)
 
     load_cnt = 0
+    load_param = 0
     for k in new_state_dict.keys():
         lora_down_name = get_lora_down_name(k)
         lora_up_name = lora_down_name.replace('lora_down', 'lora_up')
-
+        #ipdb.set_trace()
         if lora_up_name in lora_state_dict:
             load_cnt += 1
             original_params = new_state_dict[k]
-            lora_down_params = lora_state_dict[lora_down_name].to(original_params.device)
+            #lora_down_params = lora_state_dict[lora_down_name].to(original_params.device)
             lora_up_params = lora_state_dict[lora_up_name].to(original_params.device)
             if len(original_params.shape) == 4:
-                lora_param = lora_up_params.squeeze() @ lora_down_params.squeeze()
+                #lora_param = lora_up_params.squeeze() @ lora_down_params.squeeze()
+                lora_param = lora_up_params.squeeze()
                 lora_param = lora_param.unsqueeze(-1).unsqueeze(-1)
+                # To trace on colab enable this line
+                # ipdb.set_trace()
             else:
-                lora_param = lora_up_params @ lora_down_params
+                #lora_param = lora_up_params @ lora_down_params
+                lora_param = lora_up_params
+                # To trace on colab enable this line
+                # ipdb.set_trace()
+            S1,S2,S3 = torch.linalg.svd(lora_param)
+            real_rank = 1
+            for kk in range(4):
+                if S2[kk] < 1e-6:
+                    break
+            real_rank = kk
+            load_param = load_param + S1.shape[0] * real_rank + real_rank * S3.shape[1]
             merge_params = original_params + alpha * lora_param
             new_state_dict[k] = merge_params
 
+    print(f'load {load_param} params from LoRAs of {model_type}')
     print(f'load {load_cnt} LoRAs of {model_type}')
     return new_state_dict
 
 
-def convert_edlora(pipe, state_dict, enable_edlora, alpha=0.6):
+def convert_edlora(pipe, state_dict, enable_edlora, alpha=1):
 
     state_dict = state_dict['params'] if 'params' in state_dict.keys() else state_dict
 
@@ -89,7 +103,7 @@ def convert_edlora(pipe, state_dict, enable_edlora, alpha=0.6):
     unet_lora_state_dict = state_dict['unet']
     pretrained_unet_state_dict = pipe.unet.state_dict()
     updated_unet_state_dict = merge_lora_into_weight(pretrained_unet_state_dict, unet_lora_state_dict, model_type='unet', alpha=alpha)
-    pipe.unet.load_state_dict(updated_unet_state_dict) 
+    pipe.unet.load_state_dict(updated_unet_state_dict)
 
     # step 3: merge lora weight to text_encoder
     text_encoder_lora_state_dict = state_dict['text_encoder']

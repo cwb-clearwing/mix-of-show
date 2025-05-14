@@ -1,4 +1,4 @@
-name: 8101_EDLoRA_potter_Cmix_B4_Repeat500
+name: 8101_potter_radam_rank_4_B2_Lr_8e-5
 manual_seed: 0
 mixed_precision: fp16
 
@@ -19,8 +19,8 @@ models:
 
 # path
 path:
-  lora_path: experiments/8101_EDLoRA_potter_Cmix_B4_Repeat500/models/edlora_model-latest_potter_model.pth
-
+  lora_path: experiments/8101_potter_radam_rank_4_B2_Lr_8e-5/models/edlora_model-latest_potter_model.pth
+  
 # validation settings
 val:
   compose_visualize: true

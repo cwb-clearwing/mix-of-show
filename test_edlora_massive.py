@@ -20,13 +20,6 @@ from mixofshow.utils.util import NEGATIVE_PROMPT, compose_visualize, dict2str, p
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version('0.18.2')
 
-from transformers import CLIPModel, CLIPProcessor
-
-# 1. 加载模型和处理器（如果之前未加载）
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
-processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-
 def visual_validation(accelerator, pipe, dataloader, current_iter, opt):
     dataset_name = dataloader.dataset.opt['name']
     pipe.unet.eval()
@@ -42,44 +35,16 @@ def visual_validation(accelerator, pipe, dataloader, current_iter, opt):
         ).images
 
         for img, prompt, indice in zip(output, val_data['prompts'], val_data['indices']):
-            with torch.no_grad():
-                # 处理文本
-                text_inputs = processor(
-                    text=prompt.replace('<potter1> <potter2>','Harry Potter'),
-                    padding=True,
-                    return_tensors="pt"
-                ).to(device)
-                
-                # 处理图像
-                image_inputs = processor(
-                    images=img,
-                    return_tensors="pt"
-                ).to(device)
-
-                # 提取特征
-                text_features = model.get_text_features(**text_inputs)
-                image_features = model.get_image_features(**image_inputs)
-
-            # 4. 特征归一化（关键步骤！）
-            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-
-            # 5. 计算CLIP Score
-            logit_scale = model.logit_scale.exp()  # 从模型获取缩放参数
-            clip_scores = logit_scale * (image_features @ text_features.T)
-
-            # 6. 转换为可读分数（假设1对1匹配）
-            final_scores = clip_scores.diag().cpu().detach().numpy()  # 获取对角线元素（图像与对应文本的分数）
-
-            img_name = '{prompt}---{clip}-G_{guidance_scale}_S_{steps}---{indice}'.format(
+            print('prompt: ', prompt)
+            print('indice: ', indice)
+            img_name = '{prompt}---G_{guidance_scale}_S_{steps}---{indice}'.format(
                 prompt=prompt.replace(' ', '_'),
-                #clip="30",
-                clip=str(round(float(final_scores), 4)).replace(' ', '_'),
                 guidance_scale=opt['val']['sample'].get('guidance_scale', 7.5),
                 steps=opt['val']['sample'].get('num_inference_steps', 50),
                 indice=indice)
 
             save_img_path = osp.join(opt['path']['visualization'], dataset_name, f'{current_iter}', f'{img_name}---{current_iter}.png')
+            print('save_img_path: ', save_img_path)
             pil_imwrite(img, save_img_path)
         # tentative for out of GPU memory
         del output
@@ -87,11 +52,6 @@ def visual_validation(accelerator, pipe, dataloader, current_iter, opt):
 
     # Save the lora layers, final eval
     accelerator.wait_for_everyone()
-
-    if opt['val'].get('compose_visualize'):
-        if accelerator.is_main_process:
-            compose_visualize(os.path.dirname(save_img_path))
-
 
 def test(root_path, args):
 

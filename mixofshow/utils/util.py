@@ -57,9 +57,6 @@ def copy_opt_file(opt_file, experiments_root):
     from shutil import copyfile
     cmd = ' '.join(sys.argv)
     filename = osp.join(experiments_root, osp.basename(opt_file))
-    # print('experiments_root ', experiments_root)
-    # print('basename ', osp.basename(opt_file))
-    # print('fffilename ', filename)
     copyfile(opt_file, filename)
 
     with open(filename, 'r+') as f:
@@ -81,15 +78,14 @@ def set_path_logger(accelerator, root_path, config_path, opt, is_train=True):
         opt['path']['visualization'] = osp.join(experiments_root,
                                                 'visualization')
     else:
-        # print('qqqqq ', root_path)
         results_root = osp.join(root_path, 'results', opt['name'])
         opt['path']['results_root'] = results_root
         opt['path']['log'] = results_root
         opt['path']['visualization'] = osp.join(results_root, 'visualization')
 
     # Handle the output folder creation
-    # if accelerator.is_main_process:
-    #     make_exp_dirs(opt)
+    if accelerator.is_main_process:
+        make_exp_dirs(opt)
 
     accelerator.wait_for_everyone()
 
@@ -284,10 +280,13 @@ def compose_visualize(dir_path):
     file_list = sorted(os.listdir(dir_path))
     img_list = []
     info_dict = {'prompts': set(), 'sample_args': set(), 'suffix': set()}
+    avg_clip = 0
     for filename in file_list:
         prompt, sample_args, index, suffix = osp.splitext(
             osp.basename(filename))[0].split('---')
 
+        clip_score = float(sample_args.split("-")[0])
+        avg_clip = avg_clip + clip_score
         filepath = osp.join(dir_path, filename)
         img = ToTensor()(Image.open(filepath))
         height, width = img.shape[1:]
@@ -302,16 +301,16 @@ def compose_visualize(dir_path):
         info_dict['suffix'].add(suffix)
 
         img_list.append(img)
-    assert len(
-        info_dict['sample_args']
-    ) == 1, 'compose dir should contain images form same sample args.'
-    assert len(info_dict['suffix']
-               ) == 1, 'compose dir should contain images form same suffix.'
-
+    #assert len(
+    #    info_dict['sample_args']
+    #) == 1, 'compose dir should contain images form same sample args.'
+    #assert len(info_dict['suffix']
+    #           ) == 1, 'compose dir should contain images form same suffix.'
+    avg_clip = avg_clip / len(file_list)
     grid = make_grid(img_list, nrow=len(img_list) // len(info_dict['prompts']))
     # Add 0.5 after unnormalizing to [0, 255] to round to nearest integer
     ndarr = grid.mul(255).add_(0.5).clamp_(0, 255).permute(1, 2, 0).to(
         'cpu', torch.uint8).numpy()
     im = Image.fromarray(ndarr)
-    save_name = f"{info_dict['sample_args'].pop()}---{info_dict['suffix'].pop()}.jpg"
+    save_name = f"{str(avg_clip)}---{info_dict['suffix'].pop()}.jpg"
     im.save(osp.join(osp.dirname(dir_path), save_name))

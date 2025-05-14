@@ -1,4 +1,4 @@
-name: 8101_EDLoRA_potter_Cmix_B4_Repeat500
+name: 8101_potter_rada_rank_4_massive_2000
 manual_seed: 0
 mixed_precision: fp16
 
@@ -6,8 +6,8 @@ mixed_precision: fp16
 datasets:
   val_vis: 
     name: PromptDataset
-    prompts: datasets/validation_prompts/single-concept/characters/test_man_part.txt
-    num_samples_per_prompt: 10
+    prompts: datasets/validation_prompts/single-concept/characters/test_man.txt
+    num_samples_per_prompt: 80
     latent_size: [ 4,64,64 ]
     replace_mapping:    
       <TOK>: <potter1> <potter2> 
@@ -19,12 +19,11 @@ models:
 
 # path
 path:
-  lora_path: experiments/8101_EDLoRA_potter_Cmix_B4_Repeat500/models/edlora_model-latest_potter_model.pth
-
+  lora_path: experiments/8101_potter_rada_rank_4/models/edlora_model-latest_potter_model.pth
+  
 # validation settings
 val:
-  compose_visualize: true
-  alpha_list: [0.7, 1.0] # 0 means only visualize embedding (without lora weight)
+  alpha_list: [0.7] # 0 means only visualize embedding (without lora weight)
   sample:
     num_inference_steps: 50
     guidance_scale: 7.5

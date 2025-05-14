@@ -1,4 +1,4 @@
-name: 8101_EDLoRA_potter_Cmix_B4_Repeat500
+name: 8101_potter_radam_rank_1
 manual_seed: 0
 mixed_precision: 'fp16'
 gradient_accumulation_steps: 1
@@ -47,10 +47,10 @@ models:
     unet:
       enable_tuning: true
       lora_cfg:
-        rank: 4
+        rank: 1
         alpha: 1.0
         where: Attention
-      lr: !!float 5e-2
+      lr: !!float 7e-5
   new_concept_token: <potter1>+<potter2>
   initializer_token: <rand-0.013>+man
   noise_offset: 0.01
@@ -67,7 +67,7 @@ path:
 # training settings
 train:
   optim_g:
-    lr: !!float 0.0  # no use since we define different component lr in model
+    lr: !!float 0.0 # no use since we define different component lr in model
     weight_decay: 0.0001
     # betas: [ 0.9, 0.999 ] # align with taming
 

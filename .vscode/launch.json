@@ -5,15 +5,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
+            "name": "test",
             "type": "debugpy",
             "request": "launch",
             "module": "accelerate.commands.launch",
             "args": [
-                "D:\\Mix-of-Show-main\\Mix-of-Show-main\\train_edlora.py",
-                "-opt", "options/train/EDLoRA/real/8101_EDLoRA_potter_Cmix_B4_Repeat500.yml",
-                "--optimizer", "adamw",
-                "--optimizer_reg", "0"
+                "train_edlora.py",
+                "-opt", "~/zjy/mix-of-show/options/train/EDLoRA/real/8101_EDLoRA_potter_Cmix_B4_Repeat500.yml",
+                "--optimizer", "prgd"
             ],
             "console": "integratedTerminal",
             "justMyCode": false

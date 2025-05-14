@@ -10,6 +10,7 @@ from diffusers.utils import deprecate
 from einops import rearrange
 from packaging import version
 from transformers import CLIPTextModel, CLIPTokenizer
+from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
 
 from mixofshow.models.edlora import (revise_edlora_unet_attention_controller_forward,
                                      revise_edlora_unet_attention_forward)
@@ -38,10 +39,22 @@ class EDLoRAPipeline(StableDiffusionPipeline):
         tokenizer: CLIPTokenizer,
         unet: UNet2DConditionModel,
         scheduler: KarrasDiffusionSchedulers,
-        safety_checker=None,
-        feature_extractor=None,
+        safety_checker: StableDiffusionSafetyChecker,
+        feature_extractor: None,
+        image_encoder: None,
         requires_safety_checker: bool = False,
     ):
+        super().__init__(
+            vae,
+            text_encoder,
+            tokenizer,
+            unet,
+            scheduler,
+            safety_checker=safety_checker,
+            feature_extractor=feature_extractor,
+            image_encoder=image_encoder,
+            requires_safety_checker=requires_safety_checker,
+        )
         if hasattr(scheduler.config, 'steps_offset') and scheduler.config.steps_offset != 1:
             deprecation_message = (
                 f'The configuration file of this scheduler: {scheduler} is outdated. `steps_offset`'
